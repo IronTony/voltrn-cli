@@ -458,19 +458,22 @@ async function main() {
     console.log(`  ✅ Customize colors in src/theme/colors.ts`);
   }
 
-  // Add reminder for Expo projects using MMKV (i18n or theme)
-  if (isExpo && (useI18n || useThemeSystem)) {
+  // Expo projects always need prebuild (bootsplash requires native code,
+  // and optionally mmkv for i18n/theme)
+  if (isExpo) {
     console.log(`\n${colors.yellow}⚠️  IMPORTANT:${colors.reset}`);
     console.log(
-      `  Since this project uses react-native-mmkv, you need to run:`
+      `  This project uses native modules (react-native-bootsplash${useI18n || useThemeSystem ? ', react-native-mmkv' : ''}).`
     );
+    console.log(`  You need to generate native code before running the app:`);
     console.log(`  ${colors.cyan}npx expo prebuild${colors.reset}`);
-    console.log(`  before starting the app to generate native code.`);
   }
 
   console.log(`\nRun your app:`);
   if (isExpo) {
-    console.log(`  npx expo start -c`);
+    console.log(`  npx expo run:ios`);
+    console.log(`  or`);
+    console.log(`  npx expo run:android`);
   } else {
     console.log(`  npx react-native run-android`);
     console.log(`  or`);
