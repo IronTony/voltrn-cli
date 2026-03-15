@@ -61,6 +61,10 @@ function getScreenTemplateForName(framework, screenName, options = {}) {
     if (specialized) {
       return specialized(framework, options);
     }
+    // Force Details template for first stack screen with custom name
+    if (options.useDetailsTemplate) {
+      return getDetailsScreenTemplate(framework, { ...options, screenName });
+    }
   }
   return getGenericScreenTemplate(framework, screenName, options);
 }

@@ -310,6 +310,8 @@ export default DetailsScreen;
 
 function getDetailsScreenTemplate(framework, options = {}) {
   const { FRAMEWORKS, applyTheme } = require('./adapter');
+  const screenName = options.screenName || 'Details';
+  const componentName = `${screenName}Screen`;
 
   let rendered;
   if (framework === FRAMEWORKS.REACT_NAVIGATION) {
@@ -317,6 +319,11 @@ function getDetailsScreenTemplate(framework, options = {}) {
   } else {
     rendered = DETAILS_SCREEN_TEMPLATE_EXPO;
   }
+
+  // Replace hardcoded names with dynamic ones
+  rendered = rendered.replace(/function DetailsScreen/g, `function ${componentName}`);
+  rendered = rendered.replace(/export default DetailsScreen/g, `export default ${componentName}`);
+  rendered = rendered.replace(/DetailsScreen\./g, `${componentName}.`);
 
   if (options.useTheme) {
     rendered = applyTheme(rendered);

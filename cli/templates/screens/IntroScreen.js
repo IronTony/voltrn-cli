@@ -93,7 +93,7 @@ function getIntroScreenTemplate(framework, options = {}) {
   const { renderTemplate, applyTheme } = require('./adapter');
 
   const routes = {
-    PUBLIC_HOME_ROUTE: 'PublicHome',
+    PUBLIC_HOME_ROUTE: options.firstPublicScreen || 'PublicHome',
     LOGIN_ROUTE: 'Login',
   };
 

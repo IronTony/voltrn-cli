@@ -99,8 +99,9 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
     getNavigateMethod,
     getBackMethod,
     applyTheme,
+    FRAMEWORKS,
   } = require('./adapter');
-  const { useI18n = false, navTargets = [], showBack = false, showLanguageSwitcher = false, useTheme = false, showThemeToggle = false } = options;
+  const { useI18n = false, navTargets = [], showBack = false, showLanguageSwitcher = false, useTheme = false, showThemeToggle = false, showLogout = false } = options;
 
   const componentName = `${screenName}Screen`;
   const displayTitle = toDisplayTitle(screenName);
@@ -291,6 +292,128 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
   langButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+});`
+    );
+  }
+
+  // Inject logout button if requested (for last tab screen with auth flow)
+  if (showLogout) {
+    // 1. Add Pressable to react-native import if not already there
+    if (!rendered.includes('Pressable')) {
+      rendered = rendered.replace(
+        /{ View, Text, StyleSheet }/,
+        '{ View, Text, StyleSheet, Pressable }'
+      );
+    }
+
+    // 2. Add auth and navigation imports after last import line
+    const authImports = [
+      "import { useAuthClient } from '@auth';",
+      "import { useAsyncCallback } from '@hooks/useAsyncCallback';",
+    ];
+    // Add navigation import if not already present
+    if (!rendered.includes('useNavigation') && !rendered.includes('useRouter')) {
+      authImports.push(getNavigationImport(framework));
+    }
+    const lastImportIdx = rendered.lastIndexOf('import ');
+    const lastImportEndIdx = rendered.indexOf('\n', lastImportIdx);
+    rendered =
+      rendered.slice(0, lastImportEndIdx + 1) +
+      authImports.join('\n') +
+      '\n' +
+      rendered.slice(lastImportEndIdx + 1);
+
+    // 3. Add auth hooks and navigation hook (if not already present)
+    const logoutNav = framework === FRAMEWORKS.EXPO_ROUTER
+      ? "router.replace('/intro')"
+      : "navigation.navigate('Intro')";
+    const navHookLine = !rendered.includes('const navigation =') && !rendered.includes('const router =')
+      ? `\n  ${getNavigationHook(framework, screenName)}`
+      : '';
+    const authHooks =
+      `${navHookLine}
+  const client = useAuthClient();
+  const { tokens } = client;
+  const [onLogout, isLogoutLoading] = useAsyncCallback(async () => {
+    await client.logout();
+    ${logoutNav};
+  }, [client]);`;
+
+    if (useI18n) {
+      rendered = rendered.replace(
+        "const { t } = useTranslation();",
+        `const { t } = useTranslation();${authHooks}`
+      );
+    }
+
+    // 4. Insert token info and logout button before closing </View>
+    const accessTokenLabel = useI18n ? "{t('common.accessToken')}" : 'Access Token';
+    const refreshTokenLabel = useI18n ? "{t('common.refreshToken')}" : 'Refresh Token';
+    const tokenSection =
+      `      <View style={styles.infoContainer}>\n` +
+      `        <Text style={styles.label}>${accessTokenLabel}</Text>\n` +
+      `        <Text style={styles.value} numberOfLines={1} ellipsizeMode="middle">\n` +
+      `          {tokens?.access_token || '-'}\n` +
+      `        </Text>\n` +
+      `      </View>\n` +
+      `\n` +
+      `      <View style={styles.infoContainer}>\n` +
+      `        <Text style={styles.label}>${refreshTokenLabel}</Text>\n` +
+      `        <Text style={styles.value} numberOfLines={1} ellipsizeMode="middle">\n` +
+      `          {tokens?.refresh_token || '-'}\n` +
+      `        </Text>\n` +
+      `      </View>`;
+
+    const logoutLabel = useI18n ? "{t('common.logout')}" : 'Logout';
+    const logoutButton =
+      tokenSection + '\n\n' +
+      `      <Pressable\n` +
+      `        style={styles.logoutButton}\n` +
+      `        onPress={onLogout}\n` +
+      `        disabled={!client.isAuthenticated || isLogoutLoading}\n` +
+      `      >\n` +
+      `        <Text style={styles.logoutButtonText}>${logoutLabel}</Text>\n` +
+      `      </Pressable>`;
+
+    const lastViewCloseLogout = rendered.lastIndexOf('    </View>');
+    rendered =
+      rendered.slice(0, lastViewCloseLogout) +
+      logoutButton +
+      '\n' +
+      rendered.slice(lastViewCloseLogout);
+
+    // 5. Add token info and logout styles
+    rendered = rendered.replace(
+      '});',
+      `  infoContainer: {
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  label: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 5,
+    fontWeight: '500',
+  },
+  value: {
+    fontSize: 18,
+    color: '#2c3e50',
+  },
+  logoutButton: {
+    marginTop: 30,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#e74c3c',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    color: '#fff',
     fontWeight: '600',
   },
 });`
