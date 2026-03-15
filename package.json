@@ -1,6 +1,6 @@
 {
   "name": "create-voltrn-boilerplate",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "description": "CLI to scaffold fully dynamic React Native or Expo apps with customizable screens, navigation, auth, i18n, and more. Always built on the latest packages.",
   "main": "index.js",
   "keywords": [
