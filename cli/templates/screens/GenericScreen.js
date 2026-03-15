@@ -225,15 +225,22 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
     );
   }
 
-  // Inject language switcher if requested
+  // Inject language switcher if requested (matches PublicHomeScreen styling)
   if (showLanguageSwitcher && useI18n) {
-    // Add switchLocaleTo import
+    // Add i18n and switchLocaleTo imports
     const lastImportIndex = rendered.lastIndexOf('import ');
     const lastImportEnd = rendered.indexOf('\n', lastImportIndex);
     rendered =
       rendered.slice(0, lastImportEnd + 1) +
+      "import i18n from '@i18n/i18n';\n" +
       "import { switchLocaleTo } from '@i18n/utils';\n" +
       rendered.slice(lastImportEnd + 1);
+
+    // Add useCallback to React import
+    rendered = rendered.replace(
+      "import React from 'react'",
+      "import React, { useCallback } from 'react'"
+    );
 
     // Add Pressable to react-native import if not already there
     if (!rendered.includes('Pressable')) {
@@ -243,18 +250,47 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
       );
     }
 
-    // Build language switcher section
+    // Add currentLocale and switchLocale callback after useTranslation
+    rendered = rendered.replace(
+      "const { t } = useTranslation();",
+      `const { t } = useTranslation();
+  const currentLocale = i18n.language;
+
+  const switchLocale = useCallback(
+    (locale: string) => () => {
+      switchLocaleTo(locale);
+    },
+    [],
+  );`
+    );
+
+    // Build language switcher section (same layout as PublicHomeScreen)
     const langSection =
-      `      <View style={styles.langSection}>\n` +
-      `        <Text style={styles.langTitle}>{t('common.language')}</Text>\n` +
-      `        <View style={styles.langRow}>\n` +
-      `          <Pressable style={styles.langButton} onPress={() => switchLocaleTo('en')}>\n` +
-      `            <Text style={styles.langButtonText}>{t('common.english')}</Text>\n` +
-      `          </Pressable>\n` +
-      `          <Pressable style={styles.langButton} onPress={() => switchLocaleTo('it')}>\n` +
-      `            <Text style={styles.langButtonText}>{t('common.italian')}</Text>\n` +
-      `          </Pressable>\n` +
-      `        </View>\n` +
+      `      <Text style={styles.langTitle}>{t('common.language')}</Text>\n` +
+      `      <View style={styles.languageButtonsContainer}>\n` +
+      `        <Pressable\n` +
+      `          style={[\n` +
+      `            styles.languageButton,\n` +
+      `            currentLocale === 'it'\n` +
+      `              ? styles.activeButton\n` +
+      `              : styles.inactiveButton,\n` +
+      `          ]}\n` +
+      `          onPress={switchLocale('it')}\n` +
+      `        >\n` +
+      `          <Text style={styles.languageButtonText}>{t('common.italian')}</Text>\n` +
+      `        </Pressable>\n` +
+      `\n` +
+      `        <Pressable\n` +
+      `          style={[\n` +
+      `            styles.languageButton,\n` +
+      `            currentLocale === 'en'\n` +
+      `              ? styles.activeButton\n` +
+      `              : styles.inactiveButton,\n` +
+      `          ]}\n` +
+      `          onPress={switchLocale('en')}\n` +
+      `        >\n` +
+      `          <Text style={styles.languageButtonText}>{t('common.english')}</Text>\n` +
+      `        </Pressable>\n` +
       `      </View>`;
 
     // Insert before the closing </View> of the container
@@ -265,34 +301,38 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
       '\n' +
       rendered.slice(lastViewClose);
 
-    // Add language switcher styles
+    // Add language switcher styles (matching PublicHomeScreen)
     rendered = rendered.replace(
       '});',
-      `  langSection: {
-    marginTop: 30,
-    gap: 8,
-  },
-  langTitle: {
+      `  langTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2c3e50',
+    marginTop: 20,
     marginBottom: 4,
   },
-  langRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  langButton: {
-    backgroundColor: '#2ecc71',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+  languageButton: {
+    marginVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
+    minWidth: 150,
     alignItems: 'center',
   },
-  langButtonText: {
-    color: '#fff',
-    fontSize: 14,
+  activeButton: {
+    backgroundColor: '#27ae60',
+  },
+  inactiveButton: {
+    backgroundColor: '#e67e22',
+  },
+  languageButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
     fontWeight: '600',
+  },
+  languageButtonsContainer: {
+    flexDirection: 'row',
+    gap: 10,
   },
 });`
     );
