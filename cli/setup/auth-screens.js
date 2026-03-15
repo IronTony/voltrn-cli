@@ -66,9 +66,18 @@ function createAuthScreens(
         opts.firstPublicScreen = config.publicScreens[0];
       }
 
+      // Add language switcher to first public screen if it's custom-named
+      if (config.publicScreens[0] === name && name !== 'PublicHome') {
+        opts.showLanguageSwitcher = true;
+      }
+
       // Add logout to last tab screen (mirrors default Profile position)
       if (name === config.privateTabScreens[config.privateTabScreens.length - 1]) {
         opts.showLogout = true;
+        // Add theme toggle if Settings is not among tab screens
+        if (useTheme && !config.privateTabScreens.includes('Settings')) {
+          opts.showThemeToggle = true;
+        }
       }
 
       // Use Details template for first stack screen (shows user profile data)
@@ -236,6 +245,9 @@ function updateAuthTranslations(projectPath, config, useTheme = false) {
   enTranslations.common.logout = 'Logout';
   enTranslations.common.accessToken = 'Access Token';
   enTranslations.common.refreshToken = 'Refresh Token';
+  enTranslations.common.language = 'Language';
+  enTranslations.common.english = 'English';
+  enTranslations.common.italian = 'Italiano';
 
   if (useTheme) {
     enTranslations.common.themeAppearance = 'Appearance';
@@ -309,6 +321,9 @@ function updateAuthTranslations(projectPath, config, useTheme = false) {
   itTranslations.common.logout = 'Esci';
   itTranslations.common.accessToken = 'Token di Accesso';
   itTranslations.common.refreshToken = 'Token di Refresh';
+  itTranslations.common.language = 'Lingua';
+  itTranslations.common.english = 'English';
+  itTranslations.common.italian = 'Italiano';
 
   if (useTheme) {
     itTranslations.common.themeAppearance = 'Aspetto';

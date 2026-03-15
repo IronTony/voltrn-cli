@@ -46,14 +46,19 @@ function createExpoRouterAuthScreensImpl(projectPath, screenConfig = null, optio
   });
 
   // Create public screens in (auth) group
-  config.publicScreens.forEach((name) => {
+  config.publicScreens.forEach((name, index) => {
     const navTargets = config.publicScreens.filter(s => s !== name);
-    const template = getScreenTemplateForName(framework, name, {
+    const opts = {
       useI18n: true,
       useAuthFlow: true,
       useTheme,
       navTargets,
-    });
+    };
+    // Add language switcher to first public screen if it's custom-named
+    if (index === 0 && name !== 'PublicHome') {
+      opts.showLanguageSwitcher = true;
+    }
+    const template = getScreenTemplateForName(framework, name, opts);
     const fileName = convertToExpoRouterPath(name) + '.tsx';
     fs.writeFileSync(path.join(authGroupDir, fileName), template);
   });
@@ -69,6 +74,10 @@ function createExpoRouterAuthScreensImpl(projectPath, screenConfig = null, optio
     // Add logout to last tab screen (mirrors default Profile position)
     if (index === config.privateTabScreens.length - 1) {
       screenOpts.showLogout = true;
+      // Add theme toggle if Settings is not among tab screens
+      if (useTheme && !config.privateTabScreens.includes('Settings')) {
+        screenOpts.showThemeToggle = true;
+      }
     }
     const template = getScreenTemplateForName(framework, name, screenOpts);
     // First tab screen becomes index.tsx
