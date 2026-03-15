@@ -36,20 +36,29 @@ function createExpoRouterAuthScreensImpl(projectPath, screenConfig = null, optio
 
   // Create fixed auth screens in (auth) group
   config.fixedScreens.forEach((name) => {
-    const template = getScreenTemplateForName(framework, name, { useI18n: true, useAuthFlow: true, useTheme });
+    const opts = { useI18n: true, useAuthFlow: true, useTheme };
+    if (name === 'Intro') {
+      opts.firstPublicScreen = config.publicScreens[0];
+    }
+    const template = getScreenTemplateForName(framework, name, opts);
     const fileName = convertToExpoRouterPath(name) + '.tsx';
     fs.writeFileSync(path.join(authGroupDir, fileName), template);
   });
 
   // Create public screens in (auth) group
-  config.publicScreens.forEach((name) => {
+  config.publicScreens.forEach((name, index) => {
     const navTargets = config.publicScreens.filter(s => s !== name);
-    const template = getScreenTemplateForName(framework, name, {
+    const opts = {
       useI18n: true,
       useAuthFlow: true,
       useTheme,
       navTargets,
-    });
+    };
+    // Add language switcher to first public screen if it's custom-named
+    if (index === 0 && name !== 'PublicHome') {
+      opts.showLanguageSwitcher = true;
+    }
+    const template = getScreenTemplateForName(framework, name, opts);
     const fileName = convertToExpoRouterPath(name) + '.tsx';
     fs.writeFileSync(path.join(authGroupDir, fileName), template);
   });
@@ -60,6 +69,15 @@ function createExpoRouterAuthScreensImpl(projectPath, screenConfig = null, optio
     // Pass all private stack screens to first tab (PrivateHome) so it can generate nav buttons
     if (index === 0) {
       screenOpts.privateStackScreens = config.privateStackScreens;
+      screenOpts.navTargets = config.privateStackScreens;
+    }
+    // Add logout to last tab screen (mirrors default Profile position)
+    if (index === config.privateTabScreens.length - 1) {
+      screenOpts.showLogout = true;
+      // Add theme toggle if Settings is not among tab screens
+      if (useTheme && !config.privateTabScreens.includes('Settings')) {
+        screenOpts.showThemeToggle = true;
+      }
     }
     const template = getScreenTemplateForName(framework, name, screenOpts);
     // First tab screen becomes index.tsx
@@ -68,8 +86,13 @@ function createExpoRouterAuthScreensImpl(projectPath, screenConfig = null, optio
   });
 
   // Create private stack screens in app directory (outside groups, shared)
-  config.privateStackScreens.forEach((name) => {
-    const template = getScreenTemplateForName(framework, name, { useI18n: true, useAuthFlow: true, useTheme });
+  config.privateStackScreens.forEach((name, index) => {
+    const opts = { useI18n: true, useAuthFlow: true, useTheme };
+    // Use Details template for first stack screen (shows user profile data)
+    if (index === 0) {
+      opts.useDetailsTemplate = true;
+    }
+    const template = getScreenTemplateForName(framework, name, opts);
     const fileName = convertToExpoRouterPath(name) + '.tsx';
     fs.writeFileSync(path.join(appDir, fileName), template);
   });

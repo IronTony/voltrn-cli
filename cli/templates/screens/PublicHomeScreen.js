@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
         {t('PublicHomeScreen.description')}
       </Text>
 
+      <Text style={styles.langTitle}>{t('common.language')}</Text>
       <View style={styles.languageButtonsContainer}>
         <Pressable
           style={[
@@ -87,6 +88,13 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     lineHeight: 24,
   },
+  langTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginTop: 20,
+    marginBottom: 4,
+  },
   languageButton: {
     marginVertical: 8,
     paddingVertical: 12,
@@ -109,7 +117,6 @@ const styles = StyleSheet.create({
   languageButtonsContainer: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 20,
   },
   backButton: {
     marginTop: 40,

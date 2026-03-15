@@ -8,7 +8,12 @@ const {
 } = require('../templates/screens');
 const { toDisplayTitle } = require('../templates/screens/GenericScreen');
 
-function createAuthScreens(projectPath, useExpoRouter = false, screenConfig = null, options = {}) {
+function createAuthScreens(
+  projectPath,
+  useExpoRouter = false,
+  screenConfig = null,
+  options = {},
+) {
   const config = screenConfig || {
     hasAuth: true,
     fixedScreens: ['Intro', 'Login'],
@@ -45,12 +50,39 @@ function createAuthScreens(projectPath, useExpoRouter = false, screenConfig = nu
 
       // If this is a public screen, add navTargets to other public screens
       if (config.publicScreens.includes(name)) {
-        opts.navTargets = config.publicScreens.filter(s => s !== name);
+        opts.navTargets = config.publicScreens.filter((s) => s !== name);
       }
 
-      // Pass all private stack screens to PrivateHome so it can generate nav buttons
+      // Pass all private stack screens to first tab so it can generate nav buttons
+      // privateStackScreens is used by PrivateHome specialized template
+      // navTargets is used by GenericScreen template (for custom-named tab screens)
       if (config.privateTabScreens[0] === name) {
         opts.privateStackScreens = config.privateStackScreens;
+        opts.navTargets = config.privateStackScreens;
+      }
+
+      // Pass first public screen to Intro so it navigates to the right screen
+      if (name === 'Intro') {
+        opts.firstPublicScreen = config.publicScreens[0];
+      }
+
+      // Add language switcher to first public screen if it's custom-named
+      if (config.publicScreens[0] === name && name !== 'PublicHome') {
+        opts.showLanguageSwitcher = true;
+      }
+
+      // Add logout to last tab screen (mirrors default Profile position)
+      if (name === config.privateTabScreens[config.privateTabScreens.length - 1]) {
+        opts.showLogout = true;
+        // Add theme toggle if Settings is not among tab screens
+        if (useTheme && !config.privateTabScreens.includes('Settings')) {
+          opts.showThemeToggle = true;
+        }
+      }
+
+      // Use Details template for first stack screen (shows user profile data)
+      if (name === config.privateStackScreens[0]) {
+        opts.useDetailsTemplate = true;
       }
 
       const template = getScreenTemplateForName(framework, name, opts);
@@ -61,7 +93,9 @@ function createAuthScreens(projectPath, useExpoRouter = false, screenConfig = nu
 
   // For Expo Router, delegate to auth-navigator-expo.js for file-based routing
   if (useExpoRouter) {
-    const { createExpoRouterAuthScreensImpl } = require('./auth-navigator-expo');
+    const {
+      createExpoRouterAuthScreensImpl,
+    } = require('./auth-navigator-expo');
     createExpoRouterAuthScreensImpl(projectPath, config, { useTheme });
   }
 
@@ -206,8 +240,16 @@ function updateAuthTranslations(projectPath, config, useTheme = false) {
   const enJsonPath = path.join(localesDir, 'en.json');
   const enTranslations = JSON.parse(fs.readFileSync(enJsonPath, 'utf8'));
 
+  // Add common auth translations
+  if (!enTranslations.common) enTranslations.common = {};
+  enTranslations.common.logout = 'Logout';
+  enTranslations.common.accessToken = 'Access Token';
+  enTranslations.common.refreshToken = 'Refresh Token';
+  enTranslations.common.language = 'Language';
+  enTranslations.common.english = 'English';
+  enTranslations.common.italian = 'Italiano';
+
   if (useTheme) {
-    if (!enTranslations.common) enTranslations.common = {};
     enTranslations.common.themeAppearance = 'Appearance';
     enTranslations.common.themeLight = 'Light';
     enTranslations.common.themeDark = 'Dark';
@@ -228,11 +270,23 @@ function updateAuthTranslations(projectPath, config, useTheme = false) {
     }
   });
 
-  // Add goTo<ScreenName> keys to PrivateHomeScreen for each private stack screen
+  // Add goTo<ScreenName> keys to first tab screen for each private stack screen
+  const enFirstTabKey = `${config.privateTabScreens[0]}Screen`;
+  if (!enTranslations[enFirstTabKey]) enTranslations[enFirstTabKey] = {};
   config.privateStackScreens.forEach((name) => {
     const displayTitle = toDisplayTitle(name);
-    enTranslations.PrivateHomeScreen[`goTo${name}`] = `Go to ${displayTitle}`;
+    enTranslations[enFirstTabKey][`goTo${name}`] = `Go to ${displayTitle}`;
   });
+
+  // Copy Details translations to first custom stack screen (for user profile data)
+  const firstStack = config.privateStackScreens[0];
+  if (firstStack !== 'Details') {
+    const firstStackKey = `${firstStack}Screen`;
+    enTranslations[firstStackKey] = {
+      ...KNOWN_EN_TRANSLATIONS.DetailsScreen,
+      title: toDisplayTitle(firstStack),
+    };
+  }
 
   // TabNavigator translations - dynamic based on config
   const tabNav = { tabBarLabels: {} };
@@ -262,8 +316,16 @@ function updateAuthTranslations(projectPath, config, useTheme = false) {
   const itJsonPath = path.join(localesDir, 'it.json');
   const itTranslations = JSON.parse(fs.readFileSync(itJsonPath, 'utf8'));
 
+  // Add common auth translations
+  if (!itTranslations.common) itTranslations.common = {};
+  itTranslations.common.logout = 'Esci';
+  itTranslations.common.accessToken = 'Token di Accesso';
+  itTranslations.common.refreshToken = 'Token di Refresh';
+  itTranslations.common.language = 'Lingua';
+  itTranslations.common.english = 'English';
+  itTranslations.common.italian = 'Italiano';
+
   if (useTheme) {
-    if (!itTranslations.common) itTranslations.common = {};
     itTranslations.common.themeAppearance = 'Aspetto';
     itTranslations.common.themeLight = 'Chiaro';
     itTranslations.common.themeDark = 'Scuro';
@@ -283,11 +345,23 @@ function updateAuthTranslations(projectPath, config, useTheme = false) {
     }
   });
 
-  // Add goTo<ScreenName> keys to PrivateHomeScreen for each private stack screen
+  // Add goTo<ScreenName> keys to first tab screen for each private stack screen
+  const itFirstTabKey = `${config.privateTabScreens[0]}Screen`;
+  if (!itTranslations[itFirstTabKey]) itTranslations[itFirstTabKey] = {};
   config.privateStackScreens.forEach((name) => {
     const displayTitle = toDisplayTitle(name);
-    itTranslations.PrivateHomeScreen[`goTo${name}`] = `Vai a ${displayTitle}`;
+    itTranslations[itFirstTabKey][`goTo${name}`] = `Vai a ${displayTitle}`;
   });
+
+  // Copy Details translations to first custom stack screen (for user profile data)
+  const firstStackIt = config.privateStackScreens[0];
+  if (firstStackIt !== 'Details') {
+    const firstStackKeyIt = `${firstStackIt}Screen`;
+    itTranslations[firstStackKeyIt] = {
+      ...KNOWN_IT_TRANSLATIONS.DetailsScreen,
+      title: toDisplayTitle(firstStackIt),
+    };
+  }
 
   // TabNavigator translations
   const itTabNav = { tabBarLabels: {} };

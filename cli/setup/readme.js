@@ -108,9 +108,11 @@ function buildGettingStarted(projectName, isExpo, useI18n, useTheme) {
     'npm install',
   ];
 
-  if (isExpo && (useI18n || useTheme)) {
+  if (isExpo) {
     lines.push('');
-    lines.push('# Required: generate native code for react-native-mmkv');
+    lines.push(
+      '# Required: generate native code (react-native-bootsplash, react-native-mmkv, etc.)',
+    );
     lines.push('npx expo prebuild');
   }
 
@@ -123,8 +125,14 @@ function buildRunningTheApp(isExpo) {
   const lines = ['## Running the App', ''];
 
   if (isExpo) {
+    lines.push('**iOS:**');
     lines.push('```bash');
-    lines.push('npx expo start -c');
+    lines.push('npx expo run:ios');
+    lines.push('```');
+    lines.push('');
+    lines.push('**Android:**');
+    lines.push('```bash');
+    lines.push('npx expo run:android');
     lines.push('```');
   } else {
     lines.push('**iOS:**');

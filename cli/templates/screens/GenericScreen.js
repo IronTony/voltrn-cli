@@ -99,8 +99,9 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
     getNavigateMethod,
     getBackMethod,
     applyTheme,
+    FRAMEWORKS,
   } = require('./adapter');
-  const { useI18n = false, navTargets = [], showBack = false, showLanguageSwitcher = false, useTheme = false, showThemeToggle = false } = options;
+  const { useI18n = false, navTargets = [], showBack = false, showLanguageSwitcher = false, useTheme = false, showThemeToggle = false, showLogout = false } = options;
 
   const componentName = `${screenName}Screen`;
   const displayTitle = toDisplayTitle(screenName);
@@ -224,15 +225,22 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
     );
   }
 
-  // Inject language switcher if requested
+  // Inject language switcher if requested (matches PublicHomeScreen styling)
   if (showLanguageSwitcher && useI18n) {
-    // Add switchLocaleTo import
+    // Add i18n and switchLocaleTo imports
     const lastImportIndex = rendered.lastIndexOf('import ');
     const lastImportEnd = rendered.indexOf('\n', lastImportIndex);
     rendered =
       rendered.slice(0, lastImportEnd + 1) +
+      "import i18n from '@i18n/i18n';\n" +
       "import { switchLocaleTo } from '@i18n/utils';\n" +
       rendered.slice(lastImportEnd + 1);
+
+    // Add useCallback to React import
+    rendered = rendered.replace(
+      "import React from 'react'",
+      "import React, { useCallback } from 'react'"
+    );
 
     // Add Pressable to react-native import if not already there
     if (!rendered.includes('Pressable')) {
@@ -242,18 +250,47 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
       );
     }
 
-    // Build language switcher section
+    // Add currentLocale and switchLocale callback after useTranslation
+    rendered = rendered.replace(
+      "const { t } = useTranslation();",
+      `const { t } = useTranslation();
+  const currentLocale = i18n.language;
+
+  const switchLocale = useCallback(
+    (locale: string) => () => {
+      switchLocaleTo(locale);
+    },
+    [],
+  );`
+    );
+
+    // Build language switcher section (same layout as PublicHomeScreen)
     const langSection =
-      `      <View style={styles.langSection}>\n` +
-      `        <Text style={styles.langTitle}>{t('common.language')}</Text>\n` +
-      `        <View style={styles.langRow}>\n` +
-      `          <Pressable style={styles.langButton} onPress={() => switchLocaleTo('en')}>\n` +
-      `            <Text style={styles.langButtonText}>{t('common.english')}</Text>\n` +
-      `          </Pressable>\n` +
-      `          <Pressable style={styles.langButton} onPress={() => switchLocaleTo('it')}>\n` +
-      `            <Text style={styles.langButtonText}>{t('common.italian')}</Text>\n` +
-      `          </Pressable>\n` +
-      `        </View>\n` +
+      `      <Text style={styles.langTitle}>{t('common.language')}</Text>\n` +
+      `      <View style={styles.languageButtonsContainer}>\n` +
+      `        <Pressable\n` +
+      `          style={[\n` +
+      `            styles.languageButton,\n` +
+      `            currentLocale === 'it'\n` +
+      `              ? styles.activeButton\n` +
+      `              : styles.inactiveButton,\n` +
+      `          ]}\n` +
+      `          onPress={switchLocale('it')}\n` +
+      `        >\n` +
+      `          <Text style={styles.languageButtonText}>{t('common.italian')}</Text>\n` +
+      `        </Pressable>\n` +
+      `\n` +
+      `        <Pressable\n` +
+      `          style={[\n` +
+      `            styles.languageButton,\n` +
+      `            currentLocale === 'en'\n` +
+      `              ? styles.activeButton\n` +
+      `              : styles.inactiveButton,\n` +
+      `          ]}\n` +
+      `          onPress={switchLocale('en')}\n` +
+      `        >\n` +
+      `          <Text style={styles.languageButtonText}>{t('common.english')}</Text>\n` +
+      `        </Pressable>\n` +
       `      </View>`;
 
     // Insert before the closing </View> of the container
@@ -264,33 +301,159 @@ function getGenericScreenTemplate(framework, screenName, options = {}) {
       '\n' +
       rendered.slice(lastViewClose);
 
-    // Add language switcher styles
+    // Add language switcher styles (matching PublicHomeScreen)
     rendered = rendered.replace(
       '});',
-      `  langSection: {
-    marginTop: 30,
-    gap: 8,
-  },
-  langTitle: {
+      `  langTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2c3e50',
+    marginTop: 20,
     marginBottom: 4,
   },
-  langRow: {
-    flexDirection: 'row',
-    gap: 12,
+  languageButton: {
+    marginVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 150,
+    alignItems: 'center',
   },
-  langButton: {
-    backgroundColor: '#2ecc71',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+  activeButton: {
+    backgroundColor: '#27ae60',
+  },
+  inactiveButton: {
+    backgroundColor: '#e67e22',
+  },
+  languageButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  languageButtonsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+});`
+    );
+  }
+
+  // Inject logout button if requested (for last tab screen with auth flow)
+  if (showLogout) {
+    // 1. Add Pressable to react-native import if not already there
+    if (!rendered.includes('Pressable')) {
+      rendered = rendered.replace(
+        /{ View, Text, StyleSheet }/,
+        '{ View, Text, StyleSheet, Pressable }'
+      );
+    }
+
+    // 2. Add auth and navigation imports after last import line
+    const authImports = [
+      "import { useAuthClient } from '@auth';",
+      "import { useAsyncCallback } from '@hooks/useAsyncCallback';",
+    ];
+    // Add navigation import if not already present
+    if (!rendered.includes('useNavigation') && !rendered.includes('useRouter')) {
+      authImports.push(getNavigationImport(framework));
+    }
+    const lastImportIdx = rendered.lastIndexOf('import ');
+    const lastImportEndIdx = rendered.indexOf('\n', lastImportIdx);
+    rendered =
+      rendered.slice(0, lastImportEndIdx + 1) +
+      authImports.join('\n') +
+      '\n' +
+      rendered.slice(lastImportEndIdx + 1);
+
+    // 3. Add auth hooks and navigation hook (if not already present)
+    const logoutNav = framework === FRAMEWORKS.EXPO_ROUTER
+      ? "router.replace('/intro')"
+      : "navigation.navigate('Intro')";
+    const navHookLine = !rendered.includes('const navigation =') && !rendered.includes('const router =')
+      ? `\n  ${getNavigationHook(framework, screenName)}`
+      : '';
+    const authHooks =
+      `${navHookLine}
+  const client = useAuthClient();
+  const { tokens } = client;
+  const [onLogout, isLogoutLoading] = useAsyncCallback(async () => {
+    await client.logout();
+    ${logoutNav};
+  }, [client]);`;
+
+    if (useI18n) {
+      rendered = rendered.replace(
+        "const { t } = useTranslation();",
+        `const { t } = useTranslation();${authHooks}`
+      );
+    }
+
+    // 4. Insert token info and logout button before closing </View>
+    const accessTokenLabel = useI18n ? "{t('common.accessToken')}" : 'Access Token';
+    const refreshTokenLabel = useI18n ? "{t('common.refreshToken')}" : 'Refresh Token';
+    const tokenSection =
+      `      <View style={styles.infoContainer}>\n` +
+      `        <Text style={styles.label}>${accessTokenLabel}</Text>\n` +
+      `        <Text style={styles.value} numberOfLines={1} ellipsizeMode="middle">\n` +
+      `          {tokens?.access_token || '-'}\n` +
+      `        </Text>\n` +
+      `      </View>\n` +
+      `\n` +
+      `      <View style={styles.infoContainer}>\n` +
+      `        <Text style={styles.label}>${refreshTokenLabel}</Text>\n` +
+      `        <Text style={styles.value} numberOfLines={1} ellipsizeMode="middle">\n` +
+      `          {tokens?.refresh_token || '-'}\n` +
+      `        </Text>\n` +
+      `      </View>`;
+
+    const logoutLabel = useI18n ? "{t('common.logout')}" : 'Logout';
+    const logoutButton =
+      tokenSection + '\n\n' +
+      `      <Pressable\n` +
+      `        style={styles.logoutButton}\n` +
+      `        onPress={onLogout}\n` +
+      `        disabled={!client.isAuthenticated || isLogoutLoading}\n` +
+      `      >\n` +
+      `        <Text style={styles.logoutButtonText}>${logoutLabel}</Text>\n` +
+      `      </Pressable>`;
+
+    const lastViewCloseLogout = rendered.lastIndexOf('    </View>');
+    rendered =
+      rendered.slice(0, lastViewCloseLogout) +
+      logoutButton +
+      '\n' +
+      rendered.slice(lastViewCloseLogout);
+
+    // 5. Add token info and logout styles
+    rendered = rendered.replace(
+      '});',
+      `  infoContainer: {
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  label: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 5,
+    fontWeight: '500',
+  },
+  value: {
+    fontSize: 18,
+    color: '#2c3e50',
+  },
+  logoutButton: {
+    marginTop: 30,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#e74c3c',
     borderRadius: 8,
     alignItems: 'center',
   },
-  langButtonText: {
+  logoutButtonText: {
+    fontSize: 16,
     color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
   },
 });`
