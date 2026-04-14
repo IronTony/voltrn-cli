@@ -16,6 +16,15 @@ const {
   setupSrcDirectory,
 } = require('./cli/utils/config');
 
+// Import package manager utilities
+const {
+  getPackageManager,
+  withLegacyPeerDeps,
+} = require('./cli/utils/package-manager');
+
+// Import git setup
+const { initGitRepository } = require('./cli/setup/git');
+
 // Import framework setup
 const {
   createProject,
@@ -86,12 +95,37 @@ async function main() {
     process.exit(1);
   }
 
+  // Package manager selection
+  log.step('Package Manager');
+  console.log('1. npm');
+  console.log('2. yarn');
+  console.log('3. pnpm');
+  console.log('4. bun');
+  const pmChoice = await questionWithValidation(
+    'Which package manager do you want to use? (1/2/3/4) [default: 1]: ',
+    ['1', '2', '3', '4'],
+    '1'
+  );
+  const pmNames = { '1': 'npm', '2': 'yarn', '3': 'pnpm', '4': 'bun' };
+  const pm = getPackageManager(pmNames[pmChoice]);
+
+  // Git repository
+  const gitChoice = await questionWithValidation(
+    'Initialize a git repository? (y/n) [default: y]: ',
+    ['y', 'n', 'Y', 'N'],
+    'y'
+  );
+  const initGit = gitChoice.toLowerCase() === 'y';
+
   // Question 1: React Native or Expo
   log.step('Step 1: Choose your framework');
   console.log('1. React Native CLI (bare workflow)');
   console.log('2. Expo (managed workflow)');
   const frameworkChoice = await questionWithValidation('Select option (1 or 2): ', ['1', '2']);
   const isExpo = frameworkChoice === '2';
+
+  // Resolve package manager with legacy-peer-deps for Expo/npm
+  const pmForSetup = withLegacyPeerDeps(pm, isExpo);
 
   // Question 2: Navigation
   log.step('Step 2: Choose your navigation library');
@@ -289,31 +323,31 @@ async function main() {
   // Install navigation
   log.step('Setting up navigation...');
   if (isExpo && useExpoRouter) {
-    setupExpoRouter(projectPath, useI18n, useAuthFlow, screenConfig, useThemeSystem);
+    setupExpoRouter(projectPath, useI18n, useAuthFlow, screenConfig, useThemeSystem, pmForSetup);
   } else {
-    setupReactNavigation(projectPath, isExpo, useI18n, screenConfig, useThemeSystem);
+    setupReactNavigation(projectPath, isExpo, useI18n, screenConfig, useThemeSystem, pmForSetup);
   }
 
   // Install i18n
   if (useI18n) {
     log.step('Setting up i18next...');
-    setupI18n(projectPath, isExpo);
+    setupI18n(projectPath, isExpo, pmForSetup);
   } else {
     // Set up basic path aliases even without i18n
     log.step('Setting up path aliases...');
-    setupPathAliases(projectPath, isExpo);
+    setupPathAliases(projectPath, isExpo, pmForSetup);
   }
 
   // Setup theming
   if (useThemeSystem) {
     log.step('Setting up theming system...');
-    setupTheme(projectPath, isExpo, useI18n);
+    setupTheme(projectPath, isExpo, useI18n, pmForSetup);
   }
 
   // Setup auth flow
   if (useAuthFlow) {
     log.step('Setting up authentication flow...');
-    setupAuthFlow(projectPath, isExpo, useExpoRouter, screenConfig);
+    setupAuthFlow(projectPath, isExpo, useExpoRouter, screenConfig, pmForSetup);
     createAuthScreens(projectPath, useExpoRouter, screenConfig, { useTheme: useThemeSystem });
     createAuthNavigator(projectPath, useExpoRouter, screenConfig, { useTheme: useThemeSystem });
   }
@@ -357,7 +391,7 @@ async function main() {
 
   // Setup splash screen & app icons
   log.step('Setting up splash screen & app icons...');
-  setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow);
+  setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pmForSetup);
 
   // Run pod install for iOS (React Native CLI only). Must run AFTER bootsplash
   // is installed so the native module gets linked
@@ -380,6 +414,7 @@ async function main() {
     useAuthFlow,
     useTheme: useThemeSystem,
     screenConfig,
+    pm: pmForSetup,
   });
 
   // Generate MMKV storage tests
@@ -420,9 +455,9 @@ async function main() {
   if (useAuthFlow) {
     console.log(`\n${colors.yellow}⚠️  IMPORTANT:${colors.reset}`);
     console.log(`\nEnvironment management:`);
-    console.log(`  npm run env:dev      # Set development environment`);
-    console.log(`  npm run env:stage    # Set staging environment`);
-    console.log(`  npm run env:prod     # Set production environment`);
+    console.log(`  ${pm.run('env:dev')}      # Set development environment`);
+    console.log(`  ${pm.run('env:stage')}    # Set staging environment`);
+    console.log(`  ${pm.run('env:prod')}     # Set production environment`);
   }
 
   if (useAuthFlow) {
@@ -478,6 +513,12 @@ async function main() {
     console.log(`  npx react-native run-android`);
     console.log(`  or`);
     console.log(`  npx react-native run-ios`);
+  }
+
+  // Initialize git repository (must be last, after all files are written)
+  if (initGit) {
+    log.step('Initializing git repository...');
+    initGitRepository(projectPath);
   }
 }
 

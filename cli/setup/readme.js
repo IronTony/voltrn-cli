@@ -99,13 +99,13 @@ function buildPrerequisites(isExpo) {
   return lines.join('\n');
 }
 
-function buildGettingStarted(projectName, isExpo, useI18n, useTheme) {
+function buildGettingStarted(projectName, isExpo, useI18n, useTheme, pm) {
   const lines = [
     '## Getting Started',
     '',
     '```bash',
     `cd ${projectName}`,
-    'npm install',
+    pm.install,
   ];
 
   if (isExpo) {
@@ -149,7 +149,7 @@ function buildRunningTheApp(isExpo) {
   return lines.join('\n');
 }
 
-function buildAuthSection(useExpoRouter, screenConfig) {
+function buildAuthSection(useExpoRouter, screenConfig, pm) {
   const lines = [
     '## Authentication Flow',
     '',
@@ -206,9 +206,9 @@ function buildAuthSection(useExpoRouter, screenConfig) {
   lines.push('Switch environments using:');
   lines.push('');
   lines.push('```bash');
-  lines.push('npm run env:dev      # Development');
-  lines.push('npm run env:stage    # Staging');
-  lines.push('npm run env:prod     # Production');
+  lines.push(`${pm.run('env:dev')}      # Development`);
+  lines.push(`${pm.run('env:stage')}    # Staging`);
+  lines.push(`${pm.run('env:prod')}     # Production`);
   lines.push('```');
   lines.push('');
   lines.push(
@@ -386,7 +386,7 @@ function buildPathAliases(useExpoRouter, useI18n, useAuthFlow, useTheme) {
   return lines.join('\n');
 }
 
-function buildAssetsSection() {
+function buildAssetsSection(pm) {
   const lines = [
     '## App Icons & Splash Screen',
     '',
@@ -400,7 +400,7 @@ function buildAssetsSection() {
     '2. Run:',
     '',
     '```bash',
-    'npm run assets:splash',
+    pm.run('assets:splash'),
     '```',
     '',
     'Available flags for customization:',
@@ -419,7 +419,7 @@ function buildAssetsSection() {
     '2. Run:',
     '',
     '```bash',
-    'npm run assets:icons',
+    pm.run('assets:icons'),
     '```',
     '',
     'This generates all required sizes for both iOS and Android automatically.',
@@ -451,6 +451,7 @@ function generateReadme(projectPath, projectName, options) {
     useAuthFlow,
     useTheme = false,
     screenConfig,
+    pm,
   } = options;
 
   const sections = [
@@ -464,12 +465,12 @@ function generateReadme(projectPath, projectName, options) {
       screenConfig,
     ),
     buildPrerequisites(isExpo),
-    buildGettingStarted(projectName, isExpo, useI18n, useTheme),
+    buildGettingStarted(projectName, isExpo, useI18n, useTheme, pm),
     buildRunningTheApp(isExpo),
   ];
 
   if (useAuthFlow) {
-    sections.push(buildAuthSection(useExpoRouter, screenConfig));
+    sections.push(buildAuthSection(useExpoRouter, screenConfig, pm));
   }
 
   if (useI18n) {
@@ -480,7 +481,7 @@ function generateReadme(projectPath, projectName, options) {
     sections.push(buildThemeSection());
   }
 
-  sections.push(buildAssetsSection());
+  sections.push(buildAssetsSection(pm));
   sections.push(
     buildProjectStructure(
       isExpo,

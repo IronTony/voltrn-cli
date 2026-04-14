@@ -8,23 +8,19 @@ const {
   writeBabelConfig,
 } = require('../utils/babel-config');
 
-function setupI18n(projectPath, isExpo) {
+function setupI18n(projectPath, isExpo, pm) {
   log.info('Installing i18next with TypeScript support...');
+  executeCommand(
+    pm.add('i18next react-i18next react-native-mmkv react-native-nitro-modules')
+  );
   if (isExpo) {
-    // Use legacy-peer-deps to handle Expo's React version conflicts
-    executeCommand(
-      'npm install i18next react-i18next react-native-mmkv react-native-nitro-modules --legacy-peer-deps'
-    );
     executeCommand('npx expo install react-native-localize');
     executeCommand(
-      'npm install --save-dev babel-plugin-module-resolver babel-preset-expo @expo/config-plugins --legacy-peer-deps'
+      pm.addDev('babel-plugin-module-resolver babel-preset-expo @expo/config-plugins')
     );
   } else {
-    executeCommand(
-      'npm install i18next react-i18next react-native-mmkv react-native-nitro-modules'
-    );
-    executeCommand('npm install react-native-localize');
-    executeCommand('npm install --save-dev babel-plugin-module-resolver');
+    executeCommand(pm.add('react-native-localize'));
+    executeCommand(pm.addDev('babel-plugin-module-resolver'));
   }
 
   // Ensure src directory exists (for both Expo and React Native CLI)

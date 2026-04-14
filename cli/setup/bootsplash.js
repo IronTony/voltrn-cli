@@ -12,13 +12,13 @@ const { log } = require('../utils/logger');
  * @param {boolean} useExpoRouter - Whether the project uses Expo Router
  * @param {boolean} useAuthFlow - Whether auth flow is enabled
  */
-function setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow) {
+function setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pm) {
   log.info('Installing react-native-bootsplash and react-native-toolbox...');
 
   // Install packages
-  executeCommand('npm install react-native-bootsplash', { cwd: projectPath });
+  executeCommand(pm.add('react-native-bootsplash'), { cwd: projectPath });
   executeCommand(
-    'npm install --save-dev @forward-software/react-native-toolbox',
+    pm.addDev('@forward-software/react-native-toolbox'),
     { cwd: projectPath },
   );
 

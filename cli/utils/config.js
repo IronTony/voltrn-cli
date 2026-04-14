@@ -194,16 +194,16 @@ function fixEslintConfig(projectPath) {
   }
 }
 
-function setupPathAliases(projectPath, isExpo) {
+function setupPathAliases(projectPath, isExpo, pm) {
   // Install babel-plugin-module-resolver and babel-preset-expo (for Expo)
   log.info('Installing babel dependencies...');
   const { executeCommand } = require('./commands');
   if (isExpo) {
     executeCommand(
-      'npm install --save-dev babel-plugin-module-resolver babel-preset-expo --legacy-peer-deps'
+      pm.addDev('babel-plugin-module-resolver babel-preset-expo')
     );
   } else {
-    executeCommand('npm install --save-dev babel-plugin-module-resolver');
+    executeCommand(pm.addDev('babel-plugin-module-resolver'));
   }
 
   // Update tsconfig.json to include path aliases

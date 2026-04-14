@@ -16,7 +16,7 @@ const {
   createDynamicScreens,
 } = require('./dynamic-screens');
 
-function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null, useTheme = false) {
+function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null, useTheme = false, pm) {
   log.info('Installing React Navigation...');
 
   const config = screenConfig || {
@@ -29,19 +29,16 @@ function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null,
   const pattern = config.navigationPattern || NAVIGATION_PATTERNS.STACK;
 
   // Base React Navigation packages
+  executeCommand(
+    pm.add('@react-navigation/native @react-navigation/native-stack')
+  );
   if (isExpo) {
-    executeCommand(
-      'npm install @react-navigation/native @react-navigation/native-stack --legacy-peer-deps'
-    );
     executeCommand(
       'npx expo install react-native-screens react-native-safe-area-context'
     );
   } else {
     executeCommand(
-      'npm install @react-navigation/native @react-navigation/native-stack'
-    );
-    executeCommand(
-      'npm install react-native-screens react-native-safe-area-context'
+      pm.add('react-native-screens react-native-safe-area-context')
     );
   }
 
@@ -50,29 +47,21 @@ function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null,
     pattern === NAVIGATION_PATTERNS.TABS ||
     pattern === NAVIGATION_PATTERNS.TABS_DRAWER
   ) {
-    if (isExpo) {
-      executeCommand(
-        'npm install @react-navigation/bottom-tabs --legacy-peer-deps'
-      );
-    } else {
-      executeCommand('npm install @react-navigation/bottom-tabs');
-    }
+    executeCommand(pm.add('@react-navigation/bottom-tabs'));
   }
 
   if (
     pattern === NAVIGATION_PATTERNS.DRAWER ||
     pattern === NAVIGATION_PATTERNS.TABS_DRAWER
   ) {
+    executeCommand(pm.add('@react-navigation/drawer'));
     if (isExpo) {
-      executeCommand(
-        'npm install @react-navigation/drawer --legacy-peer-deps'
-      );
       executeCommand(
         'npx expo install react-native-gesture-handler react-native-reanimated react-native-worklets'
       );
     } else {
       executeCommand(
-        'npm install @react-navigation/drawer react-native-gesture-handler react-native-reanimated react-native-worklets'
+        pm.add('react-native-gesture-handler react-native-reanimated react-native-worklets')
       );
     }
 
@@ -135,7 +124,7 @@ function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null,
   }
 }
 
-function setupExpoRouter(projectPath, useI18n, useAuthFlow = false, screenConfig = null, useTheme = false) {
+function setupExpoRouter(projectPath, useI18n, useAuthFlow = false, screenConfig = null, useTheme = false, pm) {
   log.info('Installing Expo Router...');
   executeCommand(
     'npx expo install expo-router react-native-safe-area-context react-native-screens expo-linking expo-constants expo-status-bar react-dom'

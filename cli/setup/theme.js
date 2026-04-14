@@ -19,21 +19,15 @@ const {
  * @param {boolean} isExpo - Whether this is an Expo project
  * @param {boolean} useI18n - Whether i18n is enabled (MMKV already installed)
  */
-function setupTheme(projectPath, isExpo, useI18n) {
+function setupTheme(projectPath, isExpo, useI18n, pm) {
   log.info('Setting up theming system...');
 
   // Install MMKV if not already installed (i18n installs it)
   if (!useI18n) {
     log.info('Installing MMKV for theme persistence...');
-    if (isExpo) {
-      executeCommand(
-        'npm install react-native-mmkv react-native-nitro-modules --legacy-peer-deps'
-      );
-    } else {
-      executeCommand(
-        'npm install react-native-mmkv react-native-nitro-modules'
-      );
-    }
+    executeCommand(
+      pm.add('react-native-mmkv react-native-nitro-modules')
+    );
   }
 
   const srcDir = path.join(projectPath, 'src');
