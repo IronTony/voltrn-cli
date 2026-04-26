@@ -194,16 +194,16 @@ function fixEslintConfig(projectPath) {
   }
 }
 
-function setupPathAliases(projectPath, isExpo) {
+async function setupPathAliases(projectPath, isExpo, pm) {
   // Install babel-plugin-module-resolver and babel-preset-expo (for Expo)
   log.info('Installing babel dependencies...');
   const { executeCommand } = require('./commands');
   if (isExpo) {
-    executeCommand(
-      'npm install --save-dev babel-plugin-module-resolver babel-preset-expo --legacy-peer-deps'
+    await executeCommand(
+      pm.addDev('babel-plugin-module-resolver babel-preset-expo')
     );
   } else {
-    executeCommand('npm install --save-dev babel-plugin-module-resolver');
+    await executeCommand(pm.addDev('babel-plugin-module-resolver'));
   }
 
   // Update tsconfig.json to include path aliases
@@ -226,9 +226,6 @@ function setupPathAliases(projectPath, isExpo) {
     ) {
       tsconfig.compilerOptions = {};
     }
-
-    // Set baseUrl for better path resolution
-    tsconfig.compilerOptions.baseUrl = '.';
 
     if (!tsconfig.compilerOptions.paths) {
       tsconfig.compilerOptions.paths = {};
@@ -447,7 +444,9 @@ function addToGitignore(projectPath, entries) {
   }
 }
 
-function setupSrcDirectory(projectPath) {
+function setupSrcDirectory(projectPath, spinner) {
+  spinner?.message('Creating src/components...');
+
   // Create src directory (for both Expo and React Native CLI)
   const srcDir = path.join(projectPath, 'src');
   if (!fs.existsSync(srcDir)) {
@@ -475,8 +474,6 @@ Example structure:
 `;
 
   fs.writeFileSync(path.join(componentsDir, 'README.md'), componentsReadme);
-
-  log.success('Project structure created (src/components)');
 }
 
 module.exports = {
