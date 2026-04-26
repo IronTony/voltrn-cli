@@ -8,19 +8,19 @@ const {
   writeBabelConfig,
 } = require('../utils/babel-config');
 
-function setupI18n(projectPath, isExpo, pm) {
+async function setupI18n(projectPath, isExpo, pm) {
   log.info('Installing i18next with TypeScript support...');
-  executeCommand(
+  await executeCommand(
     pm.add('i18next react-i18next react-native-mmkv react-native-nitro-modules')
   );
   if (isExpo) {
-    executeCommand('npx expo install react-native-localize');
-    executeCommand(
+    await executeCommand('npx expo install react-native-localize');
+    await executeCommand(
       pm.addDev('babel-plugin-module-resolver babel-preset-expo @expo/config-plugins')
     );
   } else {
-    executeCommand(pm.add('react-native-localize'));
-    executeCommand(pm.addDev('babel-plugin-module-resolver'));
+    await executeCommand(pm.add('react-native-localize'));
+    await executeCommand(pm.addDev('babel-plugin-module-resolver'));
   }
 
   // Ensure src directory exists (for both Expo and React Native CLI)
@@ -240,11 +240,6 @@ export const switchLocaleTo = (locale: string) => {
 
   if (!tsconfig.compilerOptions) {
     tsconfig.compilerOptions = {};
-  }
-
-  // Set baseUrl for better path resolution
-  if (!tsconfig.compilerOptions.baseUrl) {
-    tsconfig.compilerOptions.baseUrl = '.';
   }
 
   if (!tsconfig.compilerOptions.paths) {

@@ -16,7 +16,7 @@ const {
   createDynamicScreens,
 } = require('./dynamic-screens');
 
-function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null, useTheme = false, pm) {
+async function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null, useTheme = false, pm) {
   log.info('Installing React Navigation...');
 
   const config = screenConfig || {
@@ -29,15 +29,15 @@ function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null,
   const pattern = config.navigationPattern || NAVIGATION_PATTERNS.STACK;
 
   // Base React Navigation packages
-  executeCommand(
+  await executeCommand(
     pm.add('@react-navigation/native @react-navigation/native-stack')
   );
   if (isExpo) {
-    executeCommand(
+    await executeCommand(
       'npx expo install react-native-screens react-native-safe-area-context'
     );
   } else {
-    executeCommand(
+    await executeCommand(
       pm.add('react-native-screens react-native-safe-area-context')
     );
   }
@@ -47,20 +47,20 @@ function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null,
     pattern === NAVIGATION_PATTERNS.TABS ||
     pattern === NAVIGATION_PATTERNS.TABS_DRAWER
   ) {
-    executeCommand(pm.add('@react-navigation/bottom-tabs'));
+    await executeCommand(pm.add('@react-navigation/bottom-tabs'));
   }
 
   if (
     pattern === NAVIGATION_PATTERNS.DRAWER ||
     pattern === NAVIGATION_PATTERNS.TABS_DRAWER
   ) {
-    executeCommand(pm.add('@react-navigation/drawer'));
+    await executeCommand(pm.add('@react-navigation/drawer'));
     if (isExpo) {
-      executeCommand(
+      await executeCommand(
         'npx expo install react-native-gesture-handler react-native-reanimated react-native-worklets'
       );
     } else {
-      executeCommand(
+      await executeCommand(
         pm.add('react-native-gesture-handler react-native-reanimated react-native-worklets')
       );
     }
@@ -124,9 +124,9 @@ function setupReactNavigation(projectPath, isExpo, useI18n, screenConfig = null,
   }
 }
 
-function setupExpoRouter(projectPath, useI18n, useAuthFlow = false, screenConfig = null, useTheme = false, pm) {
+async function setupExpoRouter(projectPath, useI18n, useAuthFlow = false, screenConfig = null, useTheme = false, pm) {
   log.info('Installing Expo Router...');
-  executeCommand(
+  await executeCommand(
     'npx expo install expo-router react-native-safe-area-context react-native-screens expo-linking expo-constants expo-status-bar react-dom'
   );
 
@@ -156,7 +156,7 @@ function setupExpoRouter(projectPath, useI18n, useAuthFlow = false, screenConfig
     pattern === NAVIGATION_PATTERNS.DRAWER ||
     pattern === NAVIGATION_PATTERNS.TABS_DRAWER
   ) {
-    executeCommand(
+    await executeCommand(
       'npx expo install @react-navigation/drawer react-native-gesture-handler react-native-reanimated react-native-worklets'
     );
 

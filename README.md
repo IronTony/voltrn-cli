@@ -6,6 +6,10 @@
 
 A powerful CLI tool to quickly scaffold **React Native** and **Expo** TypeScript projects with best practices.
 
+<p align="center">
+  <img src="docs/img/terminal-view.png" alt="VoltRN CLI terminal view" width="100%" />
+</p>
+
 ## Features
 
 - ✅ React Native CLI or Expo support
@@ -284,9 +288,7 @@ Expected endpoints:
 
 ### Documentation
 
-Generated projects with auth flow include:
-- `AUTH_FLOW.md` - Complete authentication documentation
-- `IMPLEMENTATION_SUMMARY.md` - Implementation details
+Generated projects with auth flow include a `README.md` with complete authentication documentation.
 
 ## Project Structure
 

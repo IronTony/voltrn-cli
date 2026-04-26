@@ -8,7 +8,7 @@ const {
   writeBabelConfig,
 } = require('../utils/babel-config');
 
-function setupAuthFlow(projectPath, isExpo, useExpoRouter = false, screenConfig = null, pm) {
+async function setupAuthFlow(projectPath, isExpo, useExpoRouter = false, screenConfig = null, pm) {
   // Default screen config if none provided
   const config = screenConfig || {
     hasAuth: true,
@@ -22,11 +22,11 @@ function setupAuthFlow(projectPath, isExpo, useExpoRouter = false, screenConfig 
   // Install auth packages
   // For Expo Router, we don't need @react-navigation/bottom-tabs since we use expo-router tabs
   if (useExpoRouter) {
-    executeCommand(
+    await executeCommand(
       pm.add('@forward-software/react-auth axios jwt-check-expiry')
     );
   } else {
-    executeCommand(
+    await executeCommand(
       pm.add('@forward-software/react-auth @react-navigation/bottom-tabs axios jwt-check-expiry')
     );
   }

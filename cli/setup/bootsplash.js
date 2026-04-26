@@ -12,12 +12,12 @@ const { log } = require('../utils/logger');
  * @param {boolean} useExpoRouter - Whether the project uses Expo Router
  * @param {boolean} useAuthFlow - Whether auth flow is enabled
  */
-function setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pm) {
+async function setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pm) {
   log.info('Installing react-native-bootsplash and react-native-toolbox...');
 
   // Install packages
-  executeCommand(pm.add('react-native-bootsplash'), { cwd: projectPath });
-  executeCommand(
+  await executeCommand(pm.add('react-native-bootsplash'), { cwd: projectPath });
+  await executeCommand(
     pm.addDev('@forward-software/react-native-toolbox'),
     { cwd: projectPath },
   );
@@ -46,8 +46,8 @@ function setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pm) {
 
   // Run initial splash and icon generation (RN CLI only. Expo does it during prebuild)
   if (!isExpo) {
-    runSplashGeneration(projectPath);
-    runIconGeneration(projectPath);
+    await runSplashGeneration(projectPath);
+    await runIconGeneration(projectPath);
   }
 
   // Wire up BootSplash.hide() in the app entry point
@@ -120,9 +120,9 @@ function configureExpoPlugin(projectPath) {
 /**
  * Run the initial splash screen generation for RN CLI projects
  */
-function runSplashGeneration(projectPath) {
+async function runSplashGeneration(projectPath) {
   try {
-    executeCommand(
+    await executeCommand(
       'npx react-native-bootsplash generate assets/splashscreen.svg --platforms=android,ios --background=1A1A2E --logo-width=128 --assets-output=assets/bootsplash',
       { cwd: projectPath },
     );
@@ -137,9 +137,9 @@ function runSplashGeneration(projectPath) {
 /**
  * Run the initial app icon generation for RN CLI projects
  */
-function runIconGeneration(projectPath) {
+async function runIconGeneration(projectPath) {
   try {
-    executeCommand(
+    await executeCommand(
       'npx @forward-software/react-native-toolbox icons assets/icon.svg',
       { cwd: projectPath },
     );

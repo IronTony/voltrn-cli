@@ -19,13 +19,13 @@ const {
  * @param {boolean} isExpo - Whether this is an Expo project
  * @param {boolean} useI18n - Whether i18n is enabled (MMKV already installed)
  */
-function setupTheme(projectPath, isExpo, useI18n, pm) {
+async function setupTheme(projectPath, isExpo, useI18n, pm) {
   log.info('Setting up theming system...');
 
   // Install MMKV if not already installed (i18n installs it)
   if (!useI18n) {
     log.info('Installing MMKV for theme persistence...');
-    executeCommand(
+    await executeCommand(
       pm.add('react-native-mmkv react-native-nitro-modules')
     );
   }
@@ -89,9 +89,6 @@ function addThemeAlias(projectPath, isExpo, useI18n) {
 
     if (!tsconfig.compilerOptions) {
       tsconfig.compilerOptions = {};
-    }
-    if (!tsconfig.compilerOptions.baseUrl) {
-      tsconfig.compilerOptions.baseUrl = '.';
     }
     if (!tsconfig.compilerOptions.paths) {
       tsconfig.compilerOptions.paths = {};

@@ -2,10 +2,22 @@
 
 const path = require('path');
 const fs = require('fs');
-const readline = require('readline');
+const {
+  intro,
+  outro,
+  text,
+  select,
+  multiselect,
+  confirm,
+  spinner,
+  note,
+  isCancel,
+  cancel,
+} = require('@clack/prompts');
+const pc = require('picocolors');
 
 // Import utilities
-const { displayBanner, log, colors } = require('./cli/utils/logger');
+const { log } = require('./cli/utils/logger');
 
 // Import configuration functions
 const {
@@ -20,6 +32,7 @@ const {
 const {
   getPackageManager,
   withLegacyPeerDeps,
+  isPackageManagerInstalled,
 } = require('./cli/utils/package-manager');
 
 // Import git setup
@@ -61,128 +74,143 @@ const {
   NAVIGATION_PATTERNS,
 } = require('./cli/utils/screen-config');
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+const pkg = require('./package.json');
 
-function question(query) {
-  return new Promise((resolve) => rl.question(query, resolve));
-}
-
-async function questionWithValidation(query, validOptions, defaultOption = null) {
-  while (true) {
-    const answer = await question(query);
-    const trimmed = answer.trim();
-    if (trimmed === '' && defaultOption) {
-      return defaultOption;
-    }
-    if (validOptions.includes(trimmed)) {
-      return trimmed;
-    }
-    log.error(`Invalid option "${trimmed}". Please enter one of: ${validOptions.join(', ')}`);
+function guardCancel(value) {
+  if (isCancel(value)) {
+    cancel('Operation cancelled.');
+    process.exit(0);
   }
+  return value;
 }
 
 async function main() {
-  // Display banner
-  displayBanner();
+  // Intro
+  intro(
+    `${pc.bgCyan(pc.black(' create-voltrn-boilerplate '))} ${pc.dim('v' + pkg.version)}`,
+  );
 
-  // Get project name
-  const projectName = await question('Enter project name: ');
-  if (!projectName) {
-    console.error('Project name is required');
+  // 1. Project name
+  const projectName = guardCancel(
+    await text({
+      message: 'What will your project be called?',
+      placeholder: 'my-app',
+      validate: (v) => (!v.trim() ? 'Project name is required' : undefined),
+    }),
+  );
+
+  // 2. Package manager (only show installed ones)
+  const allPms = [
+    { value: 'npm', label: 'npm' },
+    { value: 'yarn', label: 'yarn' },
+    { value: 'pnpm', label: 'pnpm' },
+    { value: 'bun', label: 'bun' },
+  ];
+  const pmOptions = allPms.filter((opt) =>
+    isPackageManagerInstalled(opt.value),
+  );
+
+  if (pmOptions.length === 0) {
+    cancel(
+      'No supported package manager found on this system. Install npm, yarn, pnpm, or bun and try again.',
+    );
     process.exit(1);
   }
 
-  // Package manager selection
-  log.step('Package Manager');
-  console.log('1. npm');
-  console.log('2. yarn');
-  console.log('3. pnpm');
-  console.log('4. bun');
-  const pmChoice = await questionWithValidation(
-    'Which package manager do you want to use? (1/2/3/4) [default: 1]: ',
-    ['1', '2', '3', '4'],
-    '1'
+  const pmName = guardCancel(
+    await select({
+      message: 'Which package manager?',
+      options: pmOptions,
+      initialValue: pmOptions[0].value,
+    }),
   );
-  const pmNames = { '1': 'npm', '2': 'yarn', '3': 'pnpm', '4': 'bun' };
-  const pm = getPackageManager(pmNames[pmChoice]);
+  const pm = getPackageManager(pmName);
 
-  // Git repository
-  const gitChoice = await questionWithValidation(
-    'Initialize a git repository? (y/n) [default: y]: ',
-    ['y', 'n', 'Y', 'N'],
-    'y'
+  // 3. Git init
+  const initGit = guardCancel(
+    await confirm({
+      message: 'Initialize a git repository?',
+      initialValue: true,
+    }),
   );
-  const initGit = gitChoice.toLowerCase() === 'y';
 
-  // Question 1: React Native or Expo
-  log.step('Step 1: Choose your framework');
-  console.log('1. React Native CLI (bare workflow)');
-  console.log('2. Expo (managed workflow)');
-  const frameworkChoice = await questionWithValidation('Select option (1 or 2): ', ['1', '2']);
-  const isExpo = frameworkChoice === '2';
-
-  // Resolve package manager with legacy-peer-deps for Expo/npm
+  // 4. Framework
+  const frameworkValue = guardCancel(
+    await select({
+      message: 'Which framework?',
+      options: [
+        { value: 'rn', label: 'React Native CLI', hint: 'bare workflow' },
+        { value: 'expo', label: 'Expo', hint: 'managed workflow' },
+      ],
+    }),
+  );
+  const isExpo = frameworkValue === 'expo';
   const pmForSetup = withLegacyPeerDeps(pm, isExpo);
 
-  // Question 2: Navigation
-  log.step('Step 2: Choose your navigation library');
+  // 5. Navigation (Expo only)
+  let useExpoRouter = false;
   if (isExpo) {
-    console.log('1. React Navigation');
-    console.log('2. Expo Router');
-    const navChoice = await questionWithValidation('Select option (1 or 2): ', ['1', '2']);
-    var useExpoRouter = navChoice === '2';
-  } else {
-    log.info('React Navigation will be used (standard for React Native CLI)');
-    var useExpoRouter = false;
-  }
-
-  // Question 3: i18n
-  log.step('Step 3: Internationalization (i18n)');
-  const i18nChoice = await questionWithValidation(
-    'Do you want i18next for internationalization? (y/n): ',
-    ['y', 'n', 'Y', 'N']
-  );
-  let useI18n = i18nChoice.toLowerCase() === 'y';
-
-  // Question 4: Authentication Flow
-  let useAuthFlow = false;
-  log.step('Step 4: Authentication Flow');
-  const authChoice = await questionWithValidation(
-    'Do you want to include authentication flow with @forward-software/react-auth? (y/n): ',
-    ['y', 'n', 'Y', 'N']
-  );
-  useAuthFlow = authChoice.toLowerCase() === 'y';
-
-  if (useAuthFlow && !useI18n) {
-    log.warning(
-      'Authentication flow requires i18n. Enabling i18n automatically...'
+    const navValue = guardCancel(
+      await select({
+        message: 'Which navigation library?',
+        options: [
+          { value: 'react-nav', label: 'React Navigation' },
+          { value: 'expo-router', label: 'Expo Router' },
+        ],
+      }),
     );
-    useI18n = true;
+    useExpoRouter = navValue === 'expo-router';
   }
 
-  // Question 5: Theming
-  log.step('Step 5: Theming');
-  const themeChoice = await questionWithValidation(
-    'Do you want to enable theming (dark/light mode)? (y/n) [default: y]: ',
-    ['y', 'n', 'Y', 'N'],
-    'y'
+  // 6. Features (multiselect)
+  const features = guardCancel(
+    await multiselect({
+      message: 'Which features would you like to include? (space to select)',
+      options: [
+        {
+          value: 'i18n',
+          label: 'Internationalization (i18next)',
+        },
+        {
+          value: 'auth',
+          label: 'Authentication flow',
+          hint: 'requires i18n',
+        },
+        {
+          value: 'theming',
+          label: 'Theming (dark/light mode)',
+        },
+      ],
+      required: false,
+      initialValues: ['theming'],
+    }),
   );
-  const useThemeSystem = themeChoice.toLowerCase() === 'y';
 
-  // Question 6: Configure screens
-  log.step('Step 6: Configure your screens');
+  let useI18n = features.includes('i18n');
+  const useAuthFlow = features.includes('auth');
+  const useThemeSystem = features.includes('theming');
+
+  // Auth requires i18n
+  if (useAuthFlow && !useI18n) {
+    useI18n = true;
+    note(
+      'i18n has been automatically enabled because Authentication flow requires it.',
+      'Dependency resolved',
+    );
+  }
+
+  // 7. Screen configuration
   let screenConfig;
 
   if (useAuthFlow) {
-    console.log(
-      `\n  ${colors.cyan}Auth flow includes: IntroScreen, LoginScreen (mandatory)${colors.reset}\n`
-    );
+    note('Intro + Login screens are always included.', 'Auth screens');
 
-    const publicInput = await question(
-      '  Enter PUBLIC screen names (comma-separated) [default: PublicHome]: '
+    const publicInput = guardCancel(
+      await text({
+        message: 'Public screen names (comma-separated)',
+        placeholder: 'PublicHome',
+        defaultValue: 'PublicHome',
+      }),
     );
     const publicScreens = parseScreenList(publicInput, ['PublicHome']);
     const publicValidation = validateScreenNames(publicScreens, true);
@@ -191,8 +219,12 @@ async function main() {
       log.warning('Using default public screens instead.');
     }
 
-    const tabInput = await question(
-      '  Enter PRIVATE TAB screen names (comma-separated) [default: PrivateHome, Profile, Settings]: '
+    const tabInput = guardCancel(
+      await text({
+        message: 'Private tab screen names (comma-separated)',
+        placeholder: 'PrivateHome, Profile, Settings',
+        defaultValue: 'PrivateHome, Profile, Settings',
+      }),
     );
     const privateTabScreens = parseScreenList(tabInput, [
       'PrivateHome',
@@ -205,8 +237,12 @@ async function main() {
       log.warning('Using default tab screens instead.');
     }
 
-    const stackInput = await question(
-      '  Enter additional PRIVATE STACK screen names (comma-separated) [default: Details]: '
+    const stackInput = guardCancel(
+      await text({
+        message: 'Additional private stack screen names (comma-separated)',
+        placeholder: 'Details',
+        defaultValue: 'Details',
+      }),
     );
     const privateStackScreens = parseScreenList(stackInput, ['Details']);
     const stackValidation = validateScreenNames(privateStackScreens, true);
@@ -223,11 +259,15 @@ async function main() {
           ? privateStackScreens
           : undefined,
       },
-      true
+      true,
     );
   } else {
-    const screensInput = await question(
-      '  Enter screen names (comma-separated) [default: Home, Details]: '
+    const screensInput = guardCancel(
+      await text({
+        message: 'Screen names (comma-separated)',
+        placeholder: 'Home, Details',
+        defaultValue: 'Home, Details',
+      }),
     );
     const screens = parseScreenList(screensInput, ['Home', 'Details']);
     const validation = validateScreenNames(screens);
@@ -237,13 +277,26 @@ async function main() {
     }
     const validScreens = validation.valid ? screens : ['Home', 'Details'];
 
-    // Step 7: Navigation pattern (non-auth only)
-    log.step('Step 7: Choose navigation pattern');
-    console.log('1. Stack (screens connected with buttons)');
-    console.log('2. Bottom Tabs');
-    console.log('3. Drawer (side menu)');
-    console.log('4. Tabs + Drawer (side menu with bottom tabs)');
-    const patternChoice = await questionWithValidation('Select option (1, 2, 3, or 4): ', ['1', '2', '3', '4']);
+    // Navigation pattern
+    const patternChoice = guardCancel(
+      await select({
+        message: 'Navigation pattern',
+        options: [
+          {
+            value: '1',
+            label: 'Stack',
+            hint: 'screens connected with buttons',
+          },
+          { value: '2', label: 'Bottom Tabs' },
+          { value: '3', label: 'Drawer', hint: 'side menu' },
+          {
+            value: '4',
+            label: 'Tabs + Drawer',
+            hint: 'side menu with bottom tabs',
+          },
+        ],
+      }),
+    );
 
     let navigationPattern = NAVIGATION_PATTERNS.STACK;
     let tabScreens;
@@ -253,43 +306,52 @@ async function main() {
       navigationPattern = NAVIGATION_PATTERNS.TABS;
       tabScreens = [];
       for (const screen of validScreens) {
-        const choice = await questionWithValidation(
-          `  Where should "${screen}" go? (1) Tab  (2) Stack  [default: 1]: `,
-          ['1', '2'],
-          '1'
+        const placement = guardCancel(
+          await select({
+            message: `Where should "${screen}" go?`,
+            options: [
+              { value: 'tab', label: 'Tab' },
+              { value: 'stack', label: 'Stack' },
+            ],
+            initialValue: 'tab',
+          }),
         );
-        if (choice !== '2') {
-          tabScreens.push(screen);
-        }
+        if (placement === 'tab') tabScreens.push(screen);
       }
     } else if (patternChoice === '3') {
       navigationPattern = NAVIGATION_PATTERNS.DRAWER;
       drawerScreens = [];
       for (const screen of validScreens) {
-        const choice = await questionWithValidation(
-          `  Where should "${screen}" go? (1) Drawer  (2) Stack  [default: 1]: `,
-          ['1', '2'],
-          '1'
+        const placement = guardCancel(
+          await select({
+            message: `Where should "${screen}" go?`,
+            options: [
+              { value: 'drawer', label: 'Drawer' },
+              { value: 'stack', label: 'Stack' },
+            ],
+            initialValue: 'drawer',
+          }),
         );
-        if (choice !== '2') {
-          drawerScreens.push(screen);
-        }
+        if (placement === 'drawer') drawerScreens.push(screen);
       }
     } else if (patternChoice === '4') {
       navigationPattern = NAVIGATION_PATTERNS.TABS_DRAWER;
       tabScreens = [];
       drawerScreens = [];
       for (const screen of validScreens) {
-        const choice = await questionWithValidation(
-          `  Where should "${screen}" go? (1) Tab  (2) Drawer  (3) Stack  [default: 1]: `,
-          ['1', '2', '3'],
-          '1'
+        const placement = guardCancel(
+          await select({
+            message: `Where should "${screen}" go?`,
+            options: [
+              { value: 'tab', label: 'Tab' },
+              { value: 'drawer', label: 'Drawer' },
+              { value: 'stack', label: 'Stack' },
+            ],
+            initialValue: 'tab',
+          }),
         );
-        if (choice === '2') {
-          drawerScreens.push(screen);
-        } else if (choice !== '3') {
-          tabScreens.push(screen);
-        }
+        if (placement === 'tab') tabScreens.push(screen);
+        if (placement === 'drawer') drawerScreens.push(screen);
       }
     }
 
@@ -300,113 +362,125 @@ async function main() {
         tabScreens,
         drawerScreens,
       },
-      false
+      false,
     );
   }
 
-  rl.close();
+  // --- Scaffolding phase ---
+  const s = spinner();
 
-  // Create project with TypeScript
-  createProject(projectName, isExpo);
-
+  s.start('Creating project...');
+  await createProject(projectName, isExpo);
   const projectPath = path.join(process.cwd(), projectName);
   process.chdir(projectPath);
+  s.stop('Project created');
 
-  // Add MPL-2.0 license
-  log.step('Adding license...');
-  setupLicense(projectPath);
+  s.start('Setting up project structure...');
+  setupLicense(projectPath, s);
+  setupSrcDirectory(projectPath, s);
+  s.stop('Project structure ready');
 
-  // Create src directory structure (for both Expo and React Native CLI)
-  log.step('Setting up project structure...');
-  setupSrcDirectory(projectPath);
-
-  // Install navigation
-  log.step('Setting up navigation...');
+  s.start('Setting up navigation...');
   if (isExpo && useExpoRouter) {
-    setupExpoRouter(projectPath, useI18n, useAuthFlow, screenConfig, useThemeSystem, pmForSetup);
+    await setupExpoRouter(
+      projectPath,
+      useI18n,
+      useAuthFlow,
+      screenConfig,
+      useThemeSystem,
+      pmForSetup,
+    );
   } else {
-    setupReactNavigation(projectPath, isExpo, useI18n, screenConfig, useThemeSystem, pmForSetup);
+    await setupReactNavigation(
+      projectPath,
+      isExpo,
+      useI18n,
+      screenConfig,
+      useThemeSystem,
+      pmForSetup,
+    );
   }
+  s.stop('Navigation configured');
 
-  // Install i18n
   if (useI18n) {
-    log.step('Setting up i18next...');
-    setupI18n(projectPath, isExpo, pmForSetup);
+    s.start('Setting up i18next...');
+    await setupI18n(projectPath, isExpo, pmForSetup);
+    s.stop('i18next configured');
   } else {
-    // Set up basic path aliases even without i18n
-    log.step('Setting up path aliases...');
-    setupPathAliases(projectPath, isExpo, pmForSetup);
+    s.start('Setting up path aliases...');
+    await setupPathAliases(projectPath, isExpo, pmForSetup);
+    s.stop('Path aliases configured');
   }
 
-  // Setup theming
   if (useThemeSystem) {
-    log.step('Setting up theming system...');
-    setupTheme(projectPath, isExpo, useI18n, pmForSetup);
+    s.start('Setting up theming system...');
+    await setupTheme(projectPath, isExpo, useI18n, pmForSetup);
+    s.stop('Theming configured');
   }
 
-  // Setup auth flow
   if (useAuthFlow) {
-    log.step('Setting up authentication flow...');
-    setupAuthFlow(projectPath, isExpo, useExpoRouter, screenConfig, pmForSetup);
-    createAuthScreens(projectPath, useExpoRouter, screenConfig, { useTheme: useThemeSystem });
-    createAuthNavigator(projectPath, useExpoRouter, screenConfig, { useTheme: useThemeSystem });
+    s.start('Setting up authentication flow...');
+    await setupAuthFlow(projectPath, isExpo, useExpoRouter, screenConfig, pmForSetup);
+    createAuthScreens(projectPath, useExpoRouter, screenConfig, {
+      useTheme: useThemeSystem,
+    });
+    createAuthNavigator(projectPath, useExpoRouter, screenConfig, {
+      useTheme: useThemeSystem,
+    });
+    s.stop('Authentication flow configured');
   }
 
-  // Create example screens
   if (!useAuthFlow) {
-    log.step('Creating example screens...');
+    s.start('Creating example screens...');
     createExampleScreens(
       projectPath,
       useExpoRouter,
       useI18n,
       useAuthFlow,
       screenConfig,
-      { useTheme: useThemeSystem }
+      { useTheme: useThemeSystem },
     );
+    s.stop('Example screens created');
   }
 
-  // Update tsconfig for strict mode
   updateTsConfig(projectPath);
 
-  // Fix ESLint config for React Native CLI only
   if (!isExpo) {
     fixEslintConfig(projectPath);
   }
 
-  // Display navigation setup messages if React Navigation was used
   if (!isExpo || !useExpoRouter) {
     if (!isExpo) {
       log.warning(
-        'Remember to complete native setup for React Navigation on iOS/Android'
+        'Remember to complete native setup for React Navigation on iOS/Android',
       );
     }
     const navigationDtsPath = path.join(projectPath, 'navigation.d.ts');
     if (fs.existsSync(navigationDtsPath)) {
       log.success('Navigation alias (@navigation) added to path aliases');
       log.success(
-        'React Navigation configured with TypeScript (navigation.d.ts created)'
+        'React Navigation configured with TypeScript (navigation.d.ts created)',
       );
     }
   }
 
-  // Setup splash screen & app icons
-  log.step('Setting up splash screen & app icons...');
-  setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pmForSetup);
+  s.start('Setting up splash screen & app icons...');
+  await setupBootsplash(projectPath, isExpo, useExpoRouter, useAuthFlow, pmForSetup);
+  s.stop('Splash screen & app icons ready');
 
-  // Run pod install for iOS (React Native CLI only). Must run AFTER bootsplash
-  // is installed so the native module gets linked
   if (!isExpo) {
-    installIOSDependencies(projectPath);
+    s.start('Installing iOS dependencies (this may take a few minutes)...');
+    await installIOSDependencies(projectPath);
+    s.stop('iOS dependencies installed');
   }
 
-  // Setup environment scripts (only if auth flow is used, which includes axios)
   if (useAuthFlow) {
-    log.step('Setting up environment management scripts...');
+    s.start('Setting up environment management...');
     setupEnvironmentScripts(projectPath);
+    s.stop('Environment management ready');
   }
 
-  // Generate project README.md
-  log.step('Generating README.md...');
+  s.start('Generating README.md...');
   generateReadme(projectPath, projectName, {
     isExpo,
     useExpoRouter,
@@ -416,16 +490,23 @@ async function main() {
     screenConfig,
     pm: pmForSetup,
   });
+  s.stop('README.md generated');
 
-  // Generate MMKV storage tests
-  log.step('Generating storage tests...');
+  s.start('Generating storage tests...');
   setupTests(projectPath, {
     useI18n,
     useAuthFlow,
     useTheme: useThemeSystem,
   });
+  s.stop('Storage tests generated');
 
-  // Display navigation pattern info for non-auth flow
+  if (initGit) {
+    s.start('Initializing git repository...');
+    initGitRepository(projectPath);
+    s.stop('Git repository initialized');
+  }
+
+  // --- Summary ---
   if (!useAuthFlow && screenConfig.navigationPattern) {
     const patternLabels = {
       [NAVIGATION_PATTERNS.STACK]: 'Stack',
@@ -433,7 +514,8 @@ async function main() {
       [NAVIGATION_PATTERNS.DRAWER]: 'Drawer',
       [NAVIGATION_PATTERNS.TABS_DRAWER]: 'Tabs + Drawer',
     };
-    const patternLabel = patternLabels[screenConfig.navigationPattern] || 'Stack';
+    const patternLabel =
+      patternLabels[screenConfig.navigationPattern] || 'Stack';
     log.success(`Navigation pattern: ${patternLabel}`);
 
     if (screenConfig.tabScreens) {
@@ -447,82 +529,52 @@ async function main() {
     }
   }
 
-  log.success(
-    `\n${colors.bright}Project ${projectName} created successfully!${colors.reset}`
-  );
-  console.log(`\nTo get started:`);
-  console.log(`  cd ${projectName}`);
-  if (useAuthFlow) {
-    console.log(`\n${colors.yellow}⚠️  IMPORTANT:${colors.reset}`);
-    console.log(`\nEnvironment management:`);
-    console.log(`  ${pm.run('env:dev')}      # Set development environment`);
-    console.log(`  ${pm.run('env:stage')}    # Set staging environment`);
-    console.log(`  ${pm.run('env:prod')}     # Set production environment`);
-  }
+  // Next steps
+  const nextSteps = [];
+  nextSteps.push(`cd ${projectName}`);
 
   if (useAuthFlow) {
-    const publicNames = screenConfig.publicScreens.join('/');
-    const tabNames = screenConfig.privateTabScreens.join('/');
-
-    console.log(`\n${colors.cyan}Authentication Flow:${colors.reset}`);
-    console.log(`  ✅ JWT-based auth with @forward-software/react-auth`);
-    console.log(
-      `  ✅ Intro → Login/${publicNames} (public routes)`
-    );
-    if (useExpoRouter) {
-      console.log(
-        `  ✅ Tabs (Expo Router) → ${tabNames} (private routes)`
-      );
-      console.log(
-        `  ✅ File-based routing with (auth) and (tabs) route groups`
-      );
-    } else {
-      console.log(
-        `  ✅ MainTabs → ${tabNames} (private routes)`
-      );
-    }
-    console.log(`  ✅ Configure API_URL in src/env/env.js`);
-    console.log(`  ✅ See AUTH_FLOW.md for complete documentation`);
+    nextSteps.push('');
+    nextSteps.push(`${pm.run('env:dev')}      - Set development environment`);
+    nextSteps.push(`${pm.run('env:stage')}    - Set staging environment`);
+    nextSteps.push(`${pm.run('env:prod')}     - Set production environment`);
   }
 
-  if (useThemeSystem) {
-    console.log(`\n${colors.cyan}Theming:${colors.reset}`);
-    console.log(`  ✅ Dark/Light mode with system detection`);
-    console.log(`  ✅ Theme toggle in Settings screen`);
-    console.log(`  ✅ MMKV persistence for theme preference`);
-    console.log(`  ✅ Customize colors in src/theme/colors.ts`);
-  }
-
-  // Expo projects always need prebuild (bootsplash requires native code,
-  // and optionally mmkv for i18n/theme)
   if (isExpo) {
-    console.log(`\n${colors.yellow}⚠️  IMPORTANT:${colors.reset}`);
-    console.log(
-      `  This project uses native modules (react-native-bootsplash${useI18n || useThemeSystem ? ', react-native-mmkv' : ''}).`
+    nextSteps.push('');
+    nextSteps.push(
+      `npx expo prebuild  (native modules: react-native-bootsplash${useI18n || useThemeSystem ? ', react-native-mmkv' : ''})`,
     );
-    console.log(`  You need to generate native code before running the app:`);
-    console.log(`  ${colors.cyan}npx expo prebuild${colors.reset}`);
-  }
-
-  console.log(`\nRun your app:`);
-  if (isExpo) {
-    console.log(`  npx expo run:ios`);
-    console.log(`  or`);
-    console.log(`  npx expo run:android`);
+    nextSteps.push('npx expo run:ios  /  npx expo run:android');
   } else {
-    console.log(`  npx react-native run-android`);
-    console.log(`  or`);
-    console.log(`  npx react-native run-ios`);
+    nextSteps.push('npx react-native run-ios  /  npx react-native run-android');
   }
 
-  // Initialize git repository (must be last, after all files are written)
-  if (initGit) {
-    log.step('Initializing git repository...');
-    initGitRepository(projectPath);
+  if (useAuthFlow) {
+    nextSteps.push('');
+    nextSteps.push('Configure API_URL in src/env/env.js');
+    nextSteps.push('See README.md for complete documentation');
+    nextSteps.push('');
+    nextSteps.push('Demo login credentials:');
+    nextSteps.push('  Email:    john@mail.com');
+    nextSteps.push('  Password: changeme');
   }
+
+  note(nextSteps.join('\n'), 'Next steps');
+
+  outro(`Your project is ready! Have fun building ${pc.cyan(projectName)}.`);
 }
 
 main().catch((error) => {
-  console.error('Error:', error);
+  cancel(`Something went wrong: ${error.message}`);
+  if (error.command) {
+    process.stderr.write(`\nFailed command: ${error.command}\n`);
+  }
+  if (error.stderr && error.stderr.length) {
+    process.stderr.write(error.stderr.toString());
+  }
+  if (error.stdout && error.stdout.length) {
+    process.stdout.write(error.stdout.toString());
+  }
   process.exit(1);
 });

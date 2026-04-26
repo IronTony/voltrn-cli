@@ -60,8 +60,25 @@ function getPackageManager(name) {
   return pm;
 }
 
+const { execSync } = require('child_process');
+
+function isPackageManagerInstalled(name) {
+  try {
+    execSync(`${name} --version`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getInstalledPackageManagers() {
+  return Object.keys(PACKAGE_MANAGERS).filter(isPackageManagerInstalled);
+}
+
 module.exports = {
   PACKAGE_MANAGERS,
   getPackageManager,
   withLegacyPeerDeps,
+  isPackageManagerInstalled,
+  getInstalledPackageManagers,
 };

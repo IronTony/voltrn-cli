@@ -10,7 +10,9 @@ const { log } = require('../utils/logger');
  *
  * @param {string} projectPath - Path to the generated project
  */
-function setupLicense(projectPath) {
+function setupLicense(projectPath, spinner) {
+  spinner?.message('Adding MPL-2.0 license...');
+
   // Copy LICENSE file from CLI root to generated project
   const sourceLicense = path.join(__dirname, '..', '..', 'LICENSE');
   const destLicense = path.join(projectPath, 'LICENSE');
@@ -29,8 +31,6 @@ function setupLicense(projectPath) {
     pkg.license = 'MPL-2.0';
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
   }
-
-  log.success('MPL-2.0 license added');
 }
 
 module.exports = { setupLicense };
